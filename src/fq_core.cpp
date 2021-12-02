@@ -6,7 +6,7 @@ SysTick - загрузка значений в регистр сравнения
 */
 void FreqConverter::main_initialization()
 {
-    ADC_initialize();
+    //ADC_initialize();
     timer_initialize();
 }
 
@@ -38,19 +38,23 @@ void FreqConverter::timer_initialize()
 {
    // RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // включаем TIM1 (тактирование от APB2 - 72 MHz)
     //RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
-    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN | RCC_APB2ENR_IOPAEN; // включаем тактирование портов А и В
+    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN; // включаем тактирование портов А и В
     
 
     TIM1->PSC = (F_CPU / _SIGNAL_FREQUENCY_MIN / _ARR_VALUE / _DISCRETIZE) - 1;
     TIM1->ARR = _ARR_VALUE-1;
     
-    TIM1->CCER      = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC1P | TIM_CCER_CC2P | TIM_CCER_CC3P;                   
+    TIM1->CCER      = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC1P | TIM_CCER_CC2P | TIM_CCER_CC3P;
+    TIM1->CCER      |= TIM_CCER_CC1NE | TIM_CCER_CC2NE | TIM_CCER_CC3NE | TIM_CCER_CC1NP | TIM_CCER_CC2NP | TIM_CCER_CC3NP;             
     // включаем выход 1, 2, 3 каналов ножек как выход
     // устанавливаем норм. полярность(1 - высокий)
     TIM1->BDTR      = TIM_BDTR_MOE;                                                    // разрешили работу выводов
-    TIM1->CCMR1     = (0b110 << TIM_CCMR1_OC1M_Pos) /*| (0b110 << TIM_CCMR1_OC2M_Pos)*/ | TIM_CCMR1_OC1PE;   // установили работу каналов 1,2 как PWM1
-    //TIM1->CCMR2     |= (0b110 << TIM_CCMR2_OC3M_Pos);                                   // установили работу канала 3 как PWM1
-    //TIM1->CCMR1 = TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1;
+
+
+    TIM1->CCMR1     |= (0b110 << TIM_CCMR1_OC1M_Pos) | (0b110 << TIM_CCMR1_OC2M_Pos) | TIM_CCMR1_OC1PE | TIM_CCMR1_OC2PE;   // установили работу каналов 1,2 как PWM1
+    TIM1->CCMR2     |= (0b110 << TIM_CCMR2_OC3M_Pos) | TIM_CCMR2_OC3PE;                                   // установили работу канала 3 как PWM1
+    TIM1->CCMR1     |= TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1;
+
     TIM1->CR1       &= ~TIM_CR1_DIR;
     TIM1->CR1       &= ~TIM_CR1_CMS;
     TIM1->DIER      = TIM_DIER_UIE;
@@ -63,6 +67,13 @@ void FreqConverter::timer_initialize()
 
     GPIOA->CRH &=   ~(GPIO_CRH_CNF8 | GPIO_CRH_CNF9 | GPIO_CRH_CNF10);
     GPIOA->CRH |=   (GPIO_CRH_CNF8_1 | GPIO_CRH_CNF9_1 | GPIO_CRH_CNF10_1);//cnf 10 - mode output
+
+    GPIOB->CRH &=   ~(GPIO_CRH_MODE13 | GPIO_CRH_MODE14 | GPIO_CRH_MODE15); //mode 01 - alernative push-pull
+    GPIOB->CRH |=   GPIO_CRH_MODE13_1 | GPIO_CRH_MODE14_1 | GPIO_CRH_MODE15_1;
+
+    GPIOB->CRH &=   ~(GPIO_CRH_CNF13 | GPIO_CRH_CNF14 | GPIO_CRH_CNF15);
+    GPIOB->CRH |=   (GPIO_CRH_CNF13_1 | GPIO_CRH_CNF14_1 | GPIO_CRH_CNF15_1);//cnf 10 - mode output
+
 
     TIM1->CR1  |=   TIM_CR1_CEN;
 /*
@@ -80,11 +91,11 @@ extern "C" void TIM1_UP_IRQHandler()
 {
     if (TIM1->SR & TIM_SR_UIF)
     {
-        static uint16_t 
+        static uint8_t 
             _counter_phase{0};
         TIM1->CCR1 = FreqConverter::phase_A[_counter_phase];
-        //TIM1->CCR2 = FreqConverter::phase_B[_counter_phase];
-        //TIM1->CCR3 = FreqConverter::phase_C[_counter_phase];
+        TIM1->CCR2 = FreqConverter::phase_B[_counter_phase];
+        TIM1->CCR3 = FreqConverter::phase_C[_counter_phase];
 
         if(++_counter_phase == _DISCRETIZE)
             _counter_phase = 0;
@@ -109,12 +120,14 @@ extern "C" void TIM2_IRQHandler()
 }
 */
 //unused
+/*
 extern "C" void ADC1_2_IRQHandler()
 {
     if(ADC1->SR & ADC_SR_EOC)
     {
         //TIM2->ARR = (_F_CPU / (FreqConverter::get_frequency() * _DISCRETIZE) - 1);
-        LED_I::value = FreqConverter::get_frequency();
+        //LED_I::value = FreqConverter::get_frequency();
     }
     ADC1->SR = 0x0;
 }
+*/
