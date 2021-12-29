@@ -37,7 +37,7 @@ void FreqConverter::ADC_initialize()
 void FreqConverter::timer_initialize()
 {
    // RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // включаем TIM1 (тактирование от APB2 - 72 MHz)
-    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
     RCC->APB2ENR |= RCC_APB2ENR_TIM1EN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN; // включаем тактирование портов А и В
     
 
@@ -74,33 +74,24 @@ void FreqConverter::timer_initialize()
     GPIOB->CRH &=   ~(GPIO_CRH_CNF13 | GPIO_CRH_CNF14 | GPIO_CRH_CNF15);
     GPIOB->CRH |=   (GPIO_CRH_CNF13_1 | GPIO_CRH_CNF14_1 | GPIO_CRH_CNF15_1);//cnf 10 - mode output
 
-    //Ноги энкодера для таймера TIM2(Input floating)
-    GPIOA->CRL |=   (0b01 << GPIO_CRL_CNF0_Pos) | (0b01 << GPIO_CRL_CNF1_Pos);
-    GPIOA->CRL |=   (0b00 << GPIO_CRL_MODE0_Pos) | (0b00 << GPIO_CRL_MODE1_Pos);
+    //Ноги энкодера для таймера TIM2
+    GPIOA->CRL |=   (0b01 << GPIO_CRL_CNF6_Pos) | (0b01 << GPIO_CRL_CNF7_Pos);
+    GPIOA->CRL |=   (0b00 << GPIO_CRL_MODE6_Pos) | (0b00 << GPIO_CRL_MODE7_Pos);
 
 
-    TIM2->SMCR |=   (0b011 << TIM_SMCR_SMS_Pos)| (0b110 << TIM_SMCR_TS_Pos); //Encoder mode. Как вверх, так и вниз. Триггер на инкремент
-    TIM2->CCER =   (TIM_CCER_CC1P | TIM_CCER_CC2P); //полярность. Активный - high
-    TIM2->CCMR1 = TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0;
-    TIM2->ARR   =   _SIGNAL_FREQUENCY_MAX; //максимальная частота синусоиды
+    TIM3->SMCR  =   TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1; //Encoder mode. Как вверх, так и вниз. Триггер на инкремент
+    TIM3->CCER  =   (TIM_CCER_CC1P | ~TIM_CCER_CC2P); //полярность. Активный - high
+    TIM3->CCMR1 |=   TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0;
+    TIM3->ARR   =   _SIGNAL_FREQUENCY_MAX; //максимальная частота синусоиды
     
-    /*
-    TIM2->DIER |=   TIM_DIER_UIE | TIM_DIER_TIE;
-    NVIC_EnableIRQ(TIM2_IRQn);
-    */
-    TIM2->CCER |=   (TIM_CCER_CC1E | TIM_CCER_CC2E); // включаем каналы
-    TIM2->CNT  = 20;
-    TIM2->CR1  |=   TIM_CR1_CEN;
+    TIM3->CNT = 50;
+    TIM3->DIER |=   TIM_DIER_UIE;
+    NVIC_EnableIRQ(TIM3_IRQn);
+
+    //TIM2->CCER |=   (TIM_CCER_CC1E | TIM_CCER_CC2E); // включаем каналы
+    TIM3->CR1  |=   TIM_CR1_CEN;
     TIM1->CR1  |=   TIM_CR1_CEN;
-/*
-    TIM2->ARR = ((_F_CPU / (1 << _BITNESS)) - 1);
-    TIM2->PSC = 0;
 
-    TIM2->DIER = TIM_DIER_UIE;
-    NVIC_EnableIRQ(TIM2_IRQn);
-
-    TIM2->CR1 |= TIM_CR1_CEN;
-*/
 }
 
 extern "C" void TIM1_UP_IRQHandler()
@@ -127,21 +118,17 @@ extern "C" void TIM1_UP_IRQHandler()
         TIM1->SR = 0;
     }
 }
-/*
-extern "C" void TIM2_IRQHandler()
+
+extern "C" void TIM3_IRQHandler()
 {
-    TIM1->PSC = FreqConverter::get_PSC(100);
-    if (TIM2->SR & TIM_SR_UIF)
+    if (TIM3->SR & TIM_SR_UIF)
     {
- 
-        if(TIM2->CNT > _SIGNAL_FREQUENCY_MAX || TIM2->CNT < _SIGNAL_FREQUENCY_MIN)
+        if(TIM3->CNT > _SIGNAL_FREQUENCY_MAX || TIM3->CNT < _SIGNAL_FREQUENCY_MIN)
            TIM2->CNT = _SIGNAL_FREQUENCY_MIN;
 
-        TIM1->PSC = FreqConverter::get_PSC(TIM2->CNT);
-        TIM2->SR &= ~TIM_SR_UIF;
+        TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT);
     }
 }
-*/
 
 //unused
 /*

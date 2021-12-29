@@ -8,9 +8,6 @@ int main()
     RCC_Init(); //инициализация тактирования
     FreqConverter::main_initialization();
 
-    while(true)
-    {
-        TIM1->PSC = FreqConverter::get_PSC(TIM2->CNT);
-    }
+    while(true);
     return 0;
 }

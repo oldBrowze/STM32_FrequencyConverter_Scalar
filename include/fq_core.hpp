@@ -7,7 +7,7 @@
 
 constexpr auto  _F_CPU                  = 72000000u;                // частота процессора
 constexpr auto  _ARR_VALUE              = 256u;
-constexpr auto  _SIGNAL_FREQUENCY_MAX   = 50u;                      // максимальная частота синусоиды
+constexpr auto  _SIGNAL_FREQUENCY_MAX   = 100u;                      // максимальная частота синусоиды
 constexpr auto  _SIGNAL_FREQUENCY_MIN   = 10u;                      // минимальная частота синусоиды
 constexpr auto  _DISCRETIZE             = 100u;                     // дискретизация синусоиды(количество точек)
 constexpr auto  _VOLTAGE_ON_PORT        = 3.3f;                     // напряжение на порту(напряжение питания)
@@ -67,7 +67,7 @@ public:
     static void array_initialize();
     static void ADC_initialize();
     static void main_initialization(); // все методы инициализации вызываются здесь.
-    static inline uint32_t get_PSC(const uint8_t& value)
+    constexpr static inline uint32_t get_PSC(const uint8_t value)
     {
         return ((F_CPU / value / _ARR_VALUE / _DISCRETIZE) - 1);
     }
