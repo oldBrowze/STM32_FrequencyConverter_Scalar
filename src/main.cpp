@@ -5,8 +5,8 @@
 
 int main()
 {
-    RCC_Init(); //инициализация тактирования
-    FreqConverter::main_initialization();
+    RCC_Init();                             //инициализация тактирования
+    FreqConverter::main_initialization();   //инициализация частотника
 
     while(true);
     return 0;
