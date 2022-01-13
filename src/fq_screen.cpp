@@ -16,8 +16,11 @@ void LED_I::init()
     //тактирование порта B уже включено таймером
     //RCC->APB2ENR = RCC_APB2ENR_IOPBEN;
     SysTick_Config(72000000 / 1000);
+    AFIO->MAPR = AFIO_MAPR_SPI1_REMAP | AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
+
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN; // запускаем тактирование SPI, PB
     
+
     SPI1->CR1 |= (1 << SPI_CR1_DFF_Pos)         // 16-битная передача
                 | (1 << SPI_CR1_SSM_Pos)        // программный SS
                 | (1 << SPI_CR1_SSI_Pos)        // программный SS
@@ -31,14 +34,14 @@ void LED_I::init()
     SPI1->CR1 |= (1 << SPI_CR1_SPE_Pos);        // запуск SPI
 
     //SCK
-    GPIOA->CRL |= (0b10 << GPIO_CRL_CNF5_Pos) | (0b11 << GPIO_CRL_MODE5_Pos);
+    GPIOB->CRL |= (0b10 << GPIO_CRL_CNF3_Pos) | (0b11 << GPIO_CRL_MODE3_Pos);
   
     //CS
     GPIOB->CRH |= (0b00 <<GPIO_CRH_CNF11_Pos) | (0b11 << GPIO_CRH_MODE11_Pos);
     GPIOB->BSRR |= GPIO_BSRR_BS11;
 
     //MOSI
-    GPIOA->CRL |= (0b10 << GPIO_CRL_CNF7_Pos) | (0b11 << GPIO_CRL_MODE7_Pos);
+    GPIOB->CRL |= (0b10 << GPIO_CRL_CNF5_Pos) | (0b11 << GPIO_CRL_MODE5_Pos);
     while(SPI1->SR & SPI_SR_MODF);
 }
 

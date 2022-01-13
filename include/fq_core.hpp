@@ -1,8 +1,10 @@
 #pragma     once
 #include    "stm32f1xx.h"
-#include    <cmath>
 #include    <array>
 #include    "core_cm3.h"
+
+#include "fq_screen.hpp"
+
 
 // компилятор должен оптимизировать, память не должна использоваться С++17
 constexpr auto  _BITNESS                = 8u;                       // разрядность цап
@@ -64,12 +66,15 @@ public:
 89, 	92, 	96, 	100, 	104, 	108, 	112, 	116, 	119, 	123
 */
     };
-    static void timer_initialize();                                 // инициализация таймеров(TIM1 & TIM3)   
-    static void ADC_initialize();                                   // инициализация АЦП для оцифровки значений шунтов на фазах
-    static void main_initialization();                              // все методы инициализации вызываются здесь
+    static constexpr bool is_fault = false;                                              //регистр-флаг, отвечающий за работу драйвера: пока fault в 1, драйвер прекращает работу
+    static constexpr bool is_reverse = false;
+    
+    static void timer_initialize();                                     // инициализация таймеров(TIM1 & TIM3)   
+    static void ADC_initialize();                                       // инициализация АЦП для оцифровки значений шунтов на фазах
+    static void main_initialization();                                  // все методы инициализации вызываются здесь
 
-    static void button_initialize();                                // инициализация кнопок   
-    constexpr static inline uint32_t get_PSC(const uint8_t &value)  // пересчет PSC для таймера TIM1(для изменения частоты синусоиды. Частота не всегда равна аргументу)
+    static void buttons_initialize();                                   // инициализация кнопок   
+    constexpr static inline uint32_t get_PSC(const uint8_t &value)      // пересчет PSC для таймера TIM1(для изменения частоты синусоиды. Частота не всегда равна аргументу)
     {
         return ((F_CPU / value / _ARR_VALUE / _DISCRETIZE) - 1);
     }

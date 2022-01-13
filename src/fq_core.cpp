@@ -1,40 +1,57 @@
 #include "fq_core.hpp"
-#include "fq_screen.hpp"
 /*
 TIM1 - формирование синусоиды на выходе. Частота зависит от ARR и PSC.
-TIM3 - обработка энкодера(тайймер в режиме encoder mode)
+TIM3 - обработка энкодера(таймер в режиме encoder mode)
 */
 void FreqConverter::main_initialization()
 {
     //ADC_initialize();
     timer_initialize();
-    //button_initialize();
+    buttons_initialize();
+    LED_I::init();
 }
 
-void FreqConverter::button_initialize()
+void FreqConverter::buttons_initialize()
 {
-    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
-    GPIOA->CRL &= ~(GPIO_CRL_MODE0 | GPIO_CRL_CNF0);
-    GPIOA->CRL |= (0x02 << GPIO_CRL_CNF0_Pos); //Вход Pull Up/Pull Down
-    GPIOA->ODR |= (1 << 0); //Подтяжка вверх
+    /*
+        Нужно, чтобы было включено тактирование AFIO, GPIOx
+    */
+    //KEY_BUTTON на энкодере
+    GPIOA->CRL &= ~(GPIO_CRL_MODE0 | GPIO_CRL_CNF0);        //Вход PullUp
+    GPIOA->CRL |= (0x02 << GPIO_CRL_CNF0_Pos);              //Вход PullUp
+    GPIOA->ODR |= (1 << 0);                                 //Подтяжка вверх
+
+    //BUTTON_REVERSE(с подтяжкой на плюс, при включенном реверсе - будет пин в лог. 0)
+    GPIOB->CRH &= ~(GPIO_CRH_MODE12 | GPIO_CRH_CNF12);      //Вход PullUp
+    GPIOB->CRH |= (0x02 << GPIO_CRH_CNF12_Pos);             //Вход PullUp
+    GPIOB->ODR |= GPIO_ODR_ODR12;                           //Подтяжка на плюс
+    //КНОПКА ОТКЛЮЧЕНИЯ FAULT/ЗВУКОВОЙ ОШИБКИ(по фронту импульса/с внешним прерыванием по изменении флага)
+
+    //Настройка внешних прерываний
+    AFIO->EXTICR[0] = AFIO_EXTICR1_EXTI0_PA;            //Нулевой канал EXTI подключен к порту PA0(KEY_BUTTON энкодера)
+    AFIO->EXTICR[2] = AFIO_EXTICR3_EXTI11_PB;           //Третий канал EXTI подключен к порту PB11(BUTTON_REVERSE)
+    AFIO->EXTICR[3] = AFIO_EXTICR4_EXTI12_PB;           //Четвертый канал EXTI подключен к порту PB12(FAULT_BUTTON)
+
+    /*
+    Обработчик кнопки реверса взводит флаг is_reverse и блокирует управление кнопками, пока двигатель не изменить скорость
+    
+    */
+    EXTI->RTSR |= EXTI_RTSR_TR12 | EXTI_RTSR_TR11;                       //Прерывание по нарастанию импульса(при переключении с лог. 0 на лог. 1 на кнопке FAULT)
+    EXTI->FTSR |= EXTI_FTSR_TR0 | EXTI_FTSR_FT11;                        //Прерывание по спаду импульса(кнопка реверса реагирует всегда)
 
 
-    AFIO->EXTICR[0] &= ~(AFIO_EXTICR1_EXTI0); //Нулевой канал EXTI подключен к порту PA0
+
+    EXTI->PR &= ~EXTI_PR_PR0;                             //Сбрасываем флаг прерывания 
+    EXTI->IMR |= EXTI_IMR_MR0;                          //Включаем прерывание 0-го канала EXTI
     
-    //EXTI->RTSR |= EXTI_RTSR_TR0; //Прерывание по нарастанию импульса
-    EXTI->FTSR |= EXTI_FTSR_TR0; //Прерывание по спаду импульса
-    
-    EXTI->PR = EXTI_PR_PR0;      //Сбрасываем флаг прерывания 
-                                //перед включением самого прерывания
-    EXTI->IMR |= EXTI_IMR_MR0;   //Включаем прерывание 0-го канала EXTI
-    
-    NVIC_EnableIRQ(EXTI0_IRQn);  //Разрешаем прерывание в контроллере прерываний
+    NVIC_EnableIRQ(EXTI0_IRQn);                         //Разрешаем прерывание в контроллере прерываний
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+
 }
 
 void FreqConverter::ADC_initialize()
 {
     //порт A затактирован.
-    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
     RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6; // т.к частота МК 72 МГц, а частота макс. АЦП - 14 МГц, то нужно использовать предделитель
     GPIOA->CRL &= ~ (GPIO_CRL_MODE1 | GPIO_CRL_CNF1);   // настраиваем порт PA1 как аналоговый
 
@@ -57,11 +74,6 @@ void FreqConverter::ADC_initialize()
 
 void FreqConverter::timer_initialize()
 {
-   // RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // включаем TIM1 (тактирование от APB2 - 72 MHz)
-    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN; // включаем тактирование портов А и В
-    
-
     TIM1->PSC = get_PSC(_SIGNAL_FREQUENCY_MIN >> 2);
     TIM1->ARR = _ARR_VALUE-1;
     
@@ -112,7 +124,7 @@ void FreqConverter::timer_initialize()
     TIM3->CR1  |=   TIM_CR1_CEN;
     TIM1->CR1  |=   TIM_CR1_CEN;
 
-    TIM3->CNT  = _SIGNAL_FREQUENCY_MIN >> 2;
+    TIM3->CNT  = ((_SIGNAL_FREQUENCY_MIN >> 2) + 5);
 }
 
 extern "C" void TIM1_UP_IRQHandler()
@@ -124,13 +136,23 @@ extern "C" void TIM1_UP_IRQHandler()
             _counter_phase_V{100},
             _counter_phase_W{200};
         
-        TIM1->CCR1 = FreqConverter::phases[_counter_phase_U];
-        TIM1->CCR2 = FreqConverter::phases[_counter_phase_V];
-        TIM1->CCR3 = FreqConverter::phases[_counter_phase_W];
+        //ОБРАБОТЧИК КНОПКИ РЕВЕРСА(проверка по значению)
+        if(GPIOB->IDR & GPIO_IDR_IDR12) //если реверса нет(true по умолчанию/подтянут к питанию)
+        {
+            TIM1->CCR1 = FreqConverter::phases[_counter_phase_U];       //фаза U
+            TIM1->CCR3 = FreqConverter::phases[_counter_phase_W];       //фаза W
+        }
+        else//тогда меняем местами фазу U и W
+        {
+            TIM1->CCR1 = FreqConverter::phases[_counter_phase_W];       //фаза U
+            TIM1->CCR3 = FreqConverter::phases[_counter_phase_U];       //фаза W
+        }
+        TIM1->CCR2 = FreqConverter::phases[_counter_phase_V];       //фаза V
+
+
 
         if(++_counter_phase_U == _DISCRETIZE)
             _counter_phase_U = 0;
-        
         if(++_counter_phase_V == _DISCRETIZE)
             _counter_phase_V = 100;
         if(++_counter_phase_W == _DISCRETIZE)
@@ -144,12 +166,19 @@ extern "C" void TIM3_IRQHandler()
 {
     if (TIM3->SR & TIM_SR_UIF)
     {
+        /*
+        Если взведен флаг реверса, значит блокируем реакцию на изменение частоты
+        для корректной работы плавного замедления/разгона частоты
+        */
+        if(FreqConverter::is_reverse)
+            return;
         if(TIM3->CNT > _SIGNAL_FREQUENCY_MAX)
             TIM3->CNT = _SIGNAL_FREQUENCY_MAX;
         if(TIM3->CNT < _SIGNAL_FREQUENCY_MIN)
             TIM3->CNT = _SIGNAL_FREQUENCY_MIN;
 
         TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT >> 2);
+        //здесь вывод частоты на экран
     }
 }
 

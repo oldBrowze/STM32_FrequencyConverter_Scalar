@@ -22,4 +22,9 @@ __attribute__((always_inline)) static inline void RCC_Init() // устанавл
     while (!((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL)) //пока не перкключились на PLL, сидим в цикле
 
     RCC->CR &= ~RCC_CR_HSION; // отключаемся от HSI
+
+    //тактирование нужных шин
+    RCC->APB2ENR = RCC_APB2ENR_AFIOEN | RCC_APB2ENR_ADC1EN | RCC_APB2ENR_TIM1EN | \
+                    RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN;
+    RCC->APB1ENR = RCC_APB1ENR_TIM3EN;
 }
