@@ -17,5 +17,5 @@ public:
     static void init();
 
 	//функция отправки команды через протокол SPI микросхеме
-	/*__STATIC_FORCEINLINE*/ static void send_command(const uint8_t, const uint8_t);
+	/*__STATIC_FORCEINLINE*/ static void send_command(const uint8_t &, const uint8_t &);
 };
