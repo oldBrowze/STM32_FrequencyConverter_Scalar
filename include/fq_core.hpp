@@ -10,8 +10,8 @@
 constexpr auto  _BITNESS                = 8u;                       // разрядность цап
 constexpr auto  _F_CPU                  = 72000000u;                // частота процессора
 constexpr auto  _ARR_VALUE              = (1 << _BITNESS);          // значение ARR(максимальное значение - 1 опорной таблицы значений)
-constexpr auto  _SIGNAL_FREQUENCY_MAX   = 100u << 2;                // максимальная частота синусоиды(умноженная на 4 - шаг энкодера = 4)
-constexpr auto  _SIGNAL_FREQUENCY_MIN   = 30u << 2;                 // минимальная частота синусоиды(умноженная на 4 - шаг энкодера = 4)
+constexpr auto  _SIGNAL_FREQUENCY_MAX   = 100u;                // максимальная частота синусоиды(умноженная на 4 - шаг энкодера = 4)
+constexpr auto  _SIGNAL_FREQUENCY_MIN   = 30u;                 // минимальная частота синусоиды(умноженная на 4 - шаг энкодера = 4)
 constexpr auto  _DISCRETIZE             = 100u;                     // дискретизация синусоиды(количество точек)
 
 //настройки АЦП

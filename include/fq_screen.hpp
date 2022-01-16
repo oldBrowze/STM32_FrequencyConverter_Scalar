@@ -8,8 +8,11 @@ class LED_I
 private:
     LED_I() = delete;
 public:
-	static constexpr std::array<uint8_t, 11> numbers_of_digit
+	//массив бинарных значений для семисегментного индикатора
+	static constexpr std::array<uint8_t, 12> numbers_of_digit
 	{
+	//dp_g_f_e_d_c_b_a
+
 		0b00111111,	//0
 		0b00000110,	//1
 		0b01011011,	//2
@@ -20,17 +23,13 @@ public:
 		0b00000111,	//7
 		0b01111111,	//8
 		0b01101111,	//9
-		0b10000000	//dp
+		0b10000000,	//dp
+		0b01110001	//F
 	};
-	static inline volatile uint32_t __ticks{0};
-
-	//функция задержки
-	static void __delay(volatile uint32_t);
-
 	//функция инициализации
     static void init();
 
-	//функция отправки команды через протокол SPI микросхеме
-	/*__STATIC_FORCEINLINE*/ static void send_command(const uint8_t &);
-	/*__STATIC_FORCEINLINE*/ static void set_digit(const uint8_t &);
+	/*__STATIC_FORCEINLINE*/ static void send_command(const uint8_t &, bool = true);		// посылает команду на микросхема
+	/*__STATIC_FORCEINLINE*/ static void update_value(const uint8_t &);						// обновляет значение на инидкаторе
+	static uint8_t get_value(const uint8_t &, const uint8_t &);
 };

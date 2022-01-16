@@ -74,7 +74,7 @@ void FreqConverter::ADC_initialize()
 
 void FreqConverter::timer_initialize()
 {
-    TIM1->PSC = get_PSC(_SIGNAL_FREQUENCY_MIN >> 2);
+    TIM1->PSC = get_PSC(_SIGNAL_FREQUENCY_MIN);
     TIM1->ARR = _ARR_VALUE-1;
     
     TIM1->CCER      = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E;
@@ -112,19 +112,20 @@ void FreqConverter::timer_initialize()
     GPIOA->CRL |=   (0b00 << GPIO_CRL_MODE6_Pos) | (0b00 << GPIO_CRL_MODE7_Pos);
 
 
-    TIM3->SMCR  =   TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1; //Encoder mode. Как вверх, так и вниз. Триггер на инкремент
+    TIM3->SMCR  =   TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 /* | (0b100 << TIM_SMCR_TS_Pos)*/; //Encoder mode. Как вверх, так и вниз. Триггер на инкремент
     TIM3->CCER  =   ~(TIM_CCER_CC1P | TIM_CCER_CC2P); //полярность. Активный - high
     TIM3->CCMR1 |=   TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0;
 
-    TIM3->ARR   =   _SIGNAL_FREQUENCY_MAX + 2; //
+    TIM3->ARR   =   _SIGNAL_FREQUENCY_MAX;
     
-    TIM3->DIER |=   TIM_DIER_UIE;
+    TIM3->DIER |=   TIM_DIER_UIE /* | TIM_DIER_TIE*/;
     NVIC_EnableIRQ(TIM3_IRQn);
 
+   // TIM3->EGR  = TIM_EGR_UG;
     TIM3->CR1  |=   TIM_CR1_CEN;
     TIM1->CR1  |=   TIM_CR1_CEN;
 
-    TIM3->CNT  = ((_SIGNAL_FREQUENCY_MIN >> 2) + 5);
+    TIM3->CNT  = 10;
 }
 
 extern "C" void TIM1_UP_IRQHandler()
@@ -164,22 +165,13 @@ extern "C" void TIM1_UP_IRQHandler()
 
 extern "C" void TIM3_IRQHandler()
 {
-    if (TIM3->SR & TIM_SR_UIF)
+    if(TIM3->SR & TIM_SR_UIF)
     {
-        /*
-        Если взведен флаг реверса, значит блокируем реакцию на изменение частоты
-        для корректной работы плавного замедления/разгона частоты
-        */
-        if(FreqConverter::is_reverse)
-            return;
-        if(TIM3->CNT > _SIGNAL_FREQUENCY_MAX)
-            TIM3->CNT = _SIGNAL_FREQUENCY_MAX;
-        if(TIM3->CNT < _SIGNAL_FREQUENCY_MIN)
-            TIM3->CNT = _SIGNAL_FREQUENCY_MIN;
-
-        TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT >> 2);
-        //здесь вывод частоты на экран
+        TIM3->CNT = (TIM3->CR1 & TIM_CR1_DIR) ? 10 : 90; 
+        TIM3->SR = 0;
     }
+    if(FreqConverter::is_reverse == false)
+        TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT);
 }
 
 
