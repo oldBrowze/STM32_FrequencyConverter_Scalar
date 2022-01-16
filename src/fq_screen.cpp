@@ -21,7 +21,7 @@ void LED_I::init()
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN; // запускаем тактирование SPI, PB
     
 
-    SPI1->CR1 |= (1 << SPI_CR1_DFF_Pos)         // 16-битная передача
+    SPI1->CR1 = (0 << SPI_CR1_DFF_Pos)         // 16-битная передача
                 | (1 << SPI_CR1_SSM_Pos)        // программный SS
                 | (1 << SPI_CR1_SSI_Pos)        // программный SS
                 | (1 << SPI_CR1_BIDIMODE_Pos)   // transmit-only
@@ -48,18 +48,17 @@ void LED_I::init()
     GPIOB->CRL |= (0b10 << GPIO_CRL_CNF5_Pos) | (0b11 << GPIO_CRL_MODE5_Pos);
 
     while(SPI1->SR & SPI_SR_MODF);
+    GPIOB->BRR = GPIO_BRR_BR11;
 }
 
-void LED_I::send_command(const uint8_t &address, const uint8_t &command)
+void LED_I::send_command(const uint8_t &command)
 {
-    GPIOB->BRR = GPIO_BRR_BR11;
-
-    SPI1->DR = (address << 8) | command; // отслыем первым байтом адрес регистра, втором - команду для регистра
+    SPI1->DR = command;
 
     while (!(SPI1->SR & SPI_SR_TXE));
     while(SPI1->SR & SPI_SR_BSY);
 
-    GPIOB->BSRR = GPIO_BSRR_BS11;
-
+    GPIOB->BSRR |= GPIO_BSRR_BS11;
+    GPIOB->BRR |= GPIO_BRR_BR11;
     __delay(1);
 }
