@@ -65,7 +65,7 @@ void LED_I::send_command(const uint8_t &command, bool in_segment)
     while(SPI1->SR & SPI_SR_BSY);
 
     GPIOB->BSRR |= (in_segment) ? GPIO_BSRR_BS11 : GPIO_BSRR_BS10;
-    GPIOB->BRR |= (in_segment) ? GPIO_BRR_BR11 : GPIO_BRR_BR10;
+    GPIOB->BSRR |= (in_segment) ? GPIO_BSRR_BR11 : GPIO_BSRR_BR10;
 }
 /*
 void LED_I::update_value(const uint8_t &value)

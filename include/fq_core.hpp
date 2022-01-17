@@ -73,14 +73,33 @@ public:
         89, 	92, 	96, 	100, 	104, 	108, 	112, 	116, 	119, 	123
         //*/
     };
-    static constexpr bool is_fault = false;                             //регистр-флаг, отвечающий за работу драйвера: пока fault в 1, драйвер прекращает работу
-    static constexpr bool is_reverse = false;
+    static inline bool is_fault = false;                                //регистр-флаг, отвечающий за работу драйвера: пока fault в 1, драйвер прекращает работу
+    static inline bool is_reverse = false;
     
     static void timer_initialize();                                     // инициализация таймеров(TIM1 & TIM3)   
     static void ADC_initialize();                                       // инициализация АЦП для оцифровки значений шунтов на фазах
-    static void main_initialization();                                  // все методы инициализации вызываются здесь
+    static void buttons_initialize();                                   // инициализация кнопок
+    static void buzzer_toggle(bool);                                    // изменение состояние buzzer(инкапсуляция регистрового обращения)  
+    static inline void main_initialization()                            // все методы инициализации вызываются здесь
+    {
+        //ADC_initialize();
+        timer_initialize();
+        //buttons_initialize();
+        LED_I::init();
+        buzzer_initialize();
+    }
 
-    static void buttons_initialize();                                   // инициализация кнопок   
+    static inline void buzzer_initialize()
+    {
+        GPIOB->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);
+        GPIOB->CRL |= (0b10 << GPIO_CRL_MODE7_Pos); 
+        /*
+        GPIOB->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);        //Вход PullUp
+        GPIOB->CRL |= (0b01 << GPIO_CRL_MODE7_Pos);              //Вход PullUp
+        //GPIOB->ODR |= (0 << 0);                                 //Подтяжка вверх
+        */
+    //GPIOB->BRR |= (in_segment) ? GPIO_BRR_BR11 : GPIO_BRR_BR10;
+    }
     constexpr static inline uint32_t get_PSC(const uint8_t &value)      // пересчет PSC для таймера TIM1(для изменения частоты синусоиды. Частота не всегда равна аргументу)
     {
         return ((F_CPU / value / _ARR_VALUE / _DISCRETIZE) - 1);

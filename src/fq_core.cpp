@@ -3,12 +3,12 @@
 TIM1 - формирование синусоиды на выходе. Частота зависит от ARR и PSC.
 TIM3 - обработка энкодера(таймер в режиме encoder mode)
 */
-void FreqConverter::main_initialization()
+
+void FreqConverter::buzzer_toggle(bool turn)
 {
-    //ADC_initialize();
-    timer_initialize();
-    //buttons_initialize();
-    LED_I::init();
+    if((GPIOB->IDR & GPIO_IDR_IDR7) == turn)
+        return;
+    GPIOB->BSRR |= (turn) ? GPIO_BSRR_BS7 : GPIO_BSRR_BR7;
 }
 
 void FreqConverter::buttons_initialize()
@@ -128,6 +128,9 @@ void FreqConverter::timer_initialize()
     TIM3->CNT  = 10;
 }
 
+//Обработчики прерываний
+
+//прерывание по переполнению таймера-формирователя синусоиды
 extern "C" void TIM1_UP_IRQHandler()
 {
     if (TIM1->SR & TIM_SR_UIF)
@@ -168,14 +171,25 @@ extern "C" void TIM1_UP_IRQHandler()
     }
 }
 
+//обработчик таймера-энкодера
 extern "C" void TIM3_IRQHandler()
 {
-    if(TIM3->SR & TIM_SR_UIF)
+    if(FreqConverter::is_fault == false)
     {
-        TIM3->CNT = (TIM3->CR1 & TIM_CR1_DIR) ? 10 : 90; 
+        if(TIM3->SR & TIM_SR_UIF)
+        {
+            TIM3->CNT = (TIM3->CR1 & TIM_CR1_DIR) ? 10 : 90; 
+        }
+        if(TIM3->SR & TIM_SR_TIF)
+        {
+            if(TIM3->CNT > 50)
+            {
+                FreqConverter::buzzer_toggle(true);
+                //FreqConverter::is_fault = true;
+            }
+            TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT);
+        }
     }
-    if(TIM3->SR & TIM_SR_TIF)
-        TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT);
     TIM3->SR = 0;
 }
 
