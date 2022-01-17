@@ -190,6 +190,9 @@ extern "C" void TIM3_IRQHandler()
             TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT);
         }
     }
+    //проверить после того, как отлючить надписи на дисплее
+    else
+        TIM3->CNT = (TIM3->CR1 & TIM_CR1_DIR) ? (TIM3->CNT + 1): (TIM3->CNT - 1);
     TIM3->SR = 0;
 }
 

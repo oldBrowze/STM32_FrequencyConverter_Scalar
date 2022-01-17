@@ -74,7 +74,7 @@ public:
         //*/
     };
     static inline bool is_fault = false;                                //регистр-флаг, отвечающий за работу драйвера: пока fault в 1, драйвер прекращает работу
-    static inline bool is_reverse = false;
+    static inline bool is_reverse = false;                              //регистр-флаг, отвечающий за активный реверс двигателя [дополнить функционал]
     
     static void timer_initialize();                                     // инициализация таймеров(TIM1 & TIM3)   
     static void ADC_initialize();                                       // инициализация АЦП для оцифровки значений шунтов на фазах

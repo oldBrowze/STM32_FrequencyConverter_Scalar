@@ -1,3 +1,4 @@
+#include "fq_core.hpp"
 #include "fq_screen.hpp"
 
 /*
@@ -67,55 +68,38 @@ void LED_I::send_command(const uint8_t &command, bool in_segment)
     GPIOB->BSRR |= (in_segment) ? GPIO_BSRR_BS11 : GPIO_BSRR_BS10;
     GPIOB->BSRR |= (in_segment) ? GPIO_BSRR_BR11 : GPIO_BSRR_BR10;
 }
-/*
-void LED_I::update_value(const uint8_t &value)
-{
-    LED_I::send_command(0x4, false);                                                //4 разряд
-    LED_I::send_command(numbers_of_digit[11]);                                      //Буква F
 
-    if(value < 10)
-    {
-        LED_I::send_command(0x3, false);                                            //3 разряд
-        LED_I::send_command(numbers_of_digit[value % 10] | numbers_of_digit[10]);   //Цифра + точка
-
-        LED_I::send_command(0x2, false);                                            //2 разряд
-        LED_I::send_command(numbers_of_digit[0]);                                   //цифра 0
-
-        LED_I::send_command(0x1, false);                                            //1 разряд
-        LED_I::send_command(numbers_of_digit[0]);                                   //цифра 0
-    }
-    else if(value < 100)
-    {
-        LED_I::send_command(0x3, false);                                            //3 разряд
-        LED_I::send_command(numbers_of_digit[(99 % 100 / 10)]);                    //Цифра
-
-        LED_I::send_command(0x2, false);                                            //2 разряд
-        LED_I::send_command(numbers_of_digit[value % 10] | numbers_of_digit[10]);   //Цифра + точка
-
-        LED_I::send_command(0x1, false);                                            //1 разряд
-        LED_I::send_command(numbers_of_digit[0]);                                   //цифра 0
-    }
-    else
-    {
-        LED_I::send_command(0x3, false);                                            //3 разряд
-        LED_I::send_command(numbers_of_digit[value / 1000]);                        //Цифра
-
-        LED_I::send_command(0x2, false);                                            //2 разряд
-        LED_I::send_command(numbers_of_digit[value % 100 / 10]);                    //Цифра 
-
-        LED_I::send_command(0x1, false);                                            //1 разряд
-        LED_I::send_command(numbers_of_digit[value % 10] | numbers_of_digit[10]);   //цифра + точка
-    }
-}
-*/
 uint8_t LED_I::get_value(const uint8_t &value, const uint8_t &digit)
 {
+    /*
+                4   3   2   1
+    FAULT       E   R   R   empty
+    REVERSE     R   E   V   empty
+    */
     switch(digit)
     {
-        case 0b0001: return value % 10;
-        case 0b0010: return (value < 10) ? 0 : value % 100 / 10;
-        case 0b0100: return (value < 100) ? 0 : value % 1000 / 100;
-        case 0b1000: return 11;
+        case 0b0001: //1
+            if(FreqConverter::is_fault || FreqConverter::is_reverse) 
+                return _index_empty;
+            return value % 10;
+        case 0b0010: //2
+            if(FreqConverter::is_fault)
+                return _index_symbol_R;
+            else if(FreqConverter::is_reverse)
+                return  _index_symbol_V;
+            return (value < 10) ? 0 : value % 100 / 10;
+        case 0b0100: //3
+            if(FreqConverter::is_fault)
+                return _index_symbol_R;
+            else if(FreqConverter::is_reverse)
+                return  _index_symbol_E;
+            return (value < 100) ? 0 : value % 1000 / 100;
+        case 0b1000: //4
+            if(FreqConverter::is_fault)
+                return _index_symbol_E;
+            else if(FreqConverter::is_reverse)
+                return  _index_symbol_R;
+            return _index_symbol_F;
         default: return 0;
     }
 }
@@ -129,66 +113,4 @@ extern "C" void SysTick_Handler()
     LED_I::send_command(LED_I::numbers_of_digit[LED_I::get_value(value, current_digit)]);
 
     current_digit = (current_digit > 4) ? 1 : current_digit << 1;
-    
-   /*
-   switch(current_digit)
-   {
-        case 4:
-            LED_I::send_command(0x8, false);                                                
-            LED_I::send_command(LED_I::numbers_of_digit[11]);         
-            break;
-        case 3:
-            if(value < 10)
-            {
-                LED_I::send_command(0x4, false);                                            //3 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[value % 10] | LED_I::numbers_of_digit[10]);   //Цифра + точка
-            }
-            else if(value < 100)
-            {
-                LED_I::send_command(0x4, false);                                            //3 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[(99 % 100 / 10)]);                    //Цифра
-            }
-            else
-            {
-                LED_I::send_command(0x4, false);                                            //3 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[value / 1000]);                        //Цифра
-            }
-            break;
-        case 2:
-            if(value < 10)
-            {
-                LED_I::send_command(0x2, false);                                            //2 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[0]);                                   //цифра 0
-            }
-            else if(value < 100)
-            {
-                LED_I::send_command(0x2, false);                                            //2 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[value % 10] | LED_I::numbers_of_digit[10]);   //Цифра + точка
-            }
-            else
-            {
-                LED_I::send_command(0x2, false);                                            //2 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[value % 100 / 10]);                    //Цифра 
-            }
-            break;
-        case 1:
-            if(value < 10)
-            {
-                LED_I::send_command(0x1, false);                                            //1 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[0]);                                   //цифра 0
-            }
-            else if(value < 100)
-            {
-                LED_I::send_command(0x1, false);                                            //1 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[0]);                                   //цифра 0
-            }
-            else
-            {
-                LED_I::send_command(0x1, false);                                            //1 разряд
-                LED_I::send_command(LED_I::numbers_of_digit[value % 10] | LED_I::numbers_of_digit[10]);   //цифра + точка
-            }
-            break;
-   }
-   current_digit = (current_digit > 4) ? 1 : current_digit + 1;
-   */
 }
