@@ -7,7 +7,7 @@ void FreqConverter::main_initialization()
 {
     //ADC_initialize();
     timer_initialize();
-    buttons_initialize();
+    //buttons_initialize();
     LED_I::init();
 }
 
@@ -112,13 +112,13 @@ void FreqConverter::timer_initialize()
     GPIOA->CRL |=   (0b00 << GPIO_CRL_MODE6_Pos) | (0b00 << GPIO_CRL_MODE7_Pos);
 
 
-    TIM3->SMCR  =   TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 /* | (0b100 << TIM_SMCR_TS_Pos)*/; //Encoder mode. Как вверх, так и вниз. Триггер на инкремент
+    TIM3->SMCR  =   TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1  | (0b100 << TIM_SMCR_TS_Pos); //Encoder mode. Как вверх, так и вниз. Триггер на инкремент
     TIM3->CCER  =   ~(TIM_CCER_CC1P | TIM_CCER_CC2P); //полярность. Активный - high
     TIM3->CCMR1 |=   TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0;
 
     TIM3->ARR   =   _SIGNAL_FREQUENCY_MAX;
     
-    TIM3->DIER |=   TIM_DIER_UIE /* | TIM_DIER_TIE*/;
+    TIM3->DIER |=   TIM_DIER_UIE  | TIM_DIER_TIE;
     NVIC_EnableIRQ(TIM3_IRQn);
 
    // TIM3->EGR  = TIM_EGR_UG;
@@ -132,12 +132,13 @@ extern "C" void TIM1_UP_IRQHandler()
 {
     if (TIM1->SR & TIM_SR_UIF)
     {
-        static uint8_t 
-            _counter_phase_U{0},
-            _counter_phase_V{100},
-            _counter_phase_W{200};
+        static uint16_t 
+            _counter_phase_U{_START_VALUE_PHASE_U},
+            _counter_phase_V{_START_VALUE_PHASE_V},
+            _counter_phase_W{_START_VALUE_PHASE_W};
         
         //ОБРАБОТЧИК КНОПКИ РЕВЕРСА(проверка по значению)
+        /*
         if(GPIOB->IDR & GPIO_IDR_IDR12) //если реверса нет(true по умолчанию/подтянут к питанию)
         {
             TIM1->CCR1 = FreqConverter::phases[_counter_phase_U];       //фаза U
@@ -148,16 +149,20 @@ extern "C" void TIM1_UP_IRQHandler()
             TIM1->CCR1 = FreqConverter::phases[_counter_phase_W];       //фаза U
             TIM1->CCR3 = FreqConverter::phases[_counter_phase_U];       //фаза W
         }
+        */
+
+        TIM1->CCR1 = FreqConverter::phases[_counter_phase_U];       //фаза U
         TIM1->CCR2 = FreqConverter::phases[_counter_phase_V];       //фаза V
+        TIM1->CCR3 = FreqConverter::phases[_counter_phase_W];       //фаза W
 
 
 
         if(++_counter_phase_U == _DISCRETIZE)
             _counter_phase_U = 0;
         if(++_counter_phase_V == _DISCRETIZE)
-            _counter_phase_V = 100;
+            _counter_phase_V = 0;
         if(++_counter_phase_W == _DISCRETIZE)
-            _counter_phase_W = 200;
+            _counter_phase_W = 0;
         
         TIM1->SR = 0;
     }
@@ -168,10 +173,10 @@ extern "C" void TIM3_IRQHandler()
     if(TIM3->SR & TIM_SR_UIF)
     {
         TIM3->CNT = (TIM3->CR1 & TIM_CR1_DIR) ? 10 : 90; 
-        TIM3->SR = 0;
     }
-    if(FreqConverter::is_reverse == false)
+    if(TIM3->SR & TIM_SR_TIF)
         TIM1->PSC = FreqConverter::get_PSC(TIM3->CNT);
+    TIM3->SR = 0;
 }
 
 
