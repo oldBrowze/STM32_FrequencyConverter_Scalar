@@ -1,22 +1,9 @@
 #include "fq_core.hpp"
 #include "fq_screen.hpp"
 
-/*
-void LED_I::__delay(volatile uint32_t ms)
-{
-    uint32_t _temp = __ticks;
-    while((__ticks - _temp) < ms);
-}
-
-extern "C" void SysTick_Handler()
-{
-    ++LED_I::__ticks;
-}
-*/
 void LED_I::init()
 {
     //тактирование порта B уже включено таймером
-    //RCC->APB2ENR = RCC_APB2ENR_IOPBEN;
     SysTick_Config(72000000 / 700);
     AFIO->MAPR = AFIO_MAPR_SPI1_REMAP | AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
 
@@ -75,6 +62,7 @@ uint8_t LED_I::get_value(const uint8_t &value, const uint8_t &digit)
                 4   3   2   1
     FAULT       E   R   R   empty
     REVERSE     R   E   V   empty
+    
     */
     switch(digit)
     {
@@ -82,24 +70,28 @@ uint8_t LED_I::get_value(const uint8_t &value, const uint8_t &digit)
             if(FreqConverter::is_fault || FreqConverter::is_reverse) 
                 return _index_empty;
             return value % 10;
+
         case 0b0010: //2
             if(FreqConverter::is_fault)
                 return _index_symbol_R;
             else if(FreqConverter::is_reverse)
                 return  _index_symbol_V;
             return (value < 10) ? 0 : value % 100 / 10;
+
         case 0b0100: //3
             if(FreqConverter::is_fault)
                 return _index_symbol_R;
             else if(FreqConverter::is_reverse)
                 return  _index_symbol_E;
             return (value < 100) ? 0 : value % 1000 / 100;
+
         case 0b1000: //4
             if(FreqConverter::is_fault)
                 return _index_symbol_E;
             else if(FreqConverter::is_reverse)
                 return  _index_symbol_R;
             return _index_symbol_F;
+            
         default: return 0;
     }
 }

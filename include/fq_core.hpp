@@ -23,24 +23,21 @@ constexpr auto  _START_VALUE_PHASE_W    = _START_VALUE_PHASE_V * 2;
 constexpr auto  _VOLTAGE_ON_PORT        = 3.3f;                     // напряжение на порту(напряжение питания)
 constexpr auto  _AMPLITUDE              = ((1 << 16) - 1) / 2;      // максимальное значение таймера
 constexpr auto  _ADC_MAX_VALUE          = (1 << 12) - 1;            // максимальное значение в АЦП
+constexpr auto  _MAX_CURRENT_PHASE      = 6u;                       // максимальный ток фазы
+constexpr auto  _MAX_TEMP_DRIVER        = 70u;                      // максимальная температура драйвера
+
+//макросы
+constexpr auto  _DIR_LEFT               = 1u;
+constexpr auto  _DIR_RIGHT              = 2u;
+
 
 class FreqConverter
 {
     using T = uint16_t;                                             // используемый тип данных у регистра
     FreqConverter() = delete;                                       // коструктор по умолчанию удален. Класс без объектов
 public:
-    static inline std::array<T, _DISCRETIZE> phases                 //разность двух фаз должна дать чистую синусоиду
+    constexpr static inline std::array<T, _DISCRETIZE> phases       // разность двух фаз должна дать чистую синусоиду
     {
-        /*
-        128, 136, 144, 152, 160, 167, 175, 182, 189, 196, 203, 209, 215, 221, 226, 
-        231, 236, 240, 243, 247, 249, 251, 253, 254, 255, 255, 255, 254, 252, 250, 
-        248, 245, 242, 238, 234, 229, 224, 218, 213, 206, 200, 193, 186, 179, 171, 
-        163, 156, 148, 140, 132, 123, 115, 107, 99, 92, 84, 76, 69, 62, 55, 
-        49, 42, 37, 31, 26, 21, 17, 13, 10, 7, 5, 3, 1, 0, 0, 
-        0, 1, 2, 4, 6, 8, 12, 15, 19, 24, 29, 34, 40, 46, 52, 
-        59, 66, 73, 80, 88, 95, 103, 111, 119, 127
-        */
-        //*
         128, 	132, 	136, 	139, 	143, 	147, 	151, 	155, 	159, 	163, 
         166, 	170, 	174, 	177, 	181, 	184, 	187, 	191, 	194, 	197, 
         200, 	202, 	205, 	208, 	210, 	213, 	215, 	217, 	219, 	221, 
@@ -71,11 +68,11 @@ public:
         32, 	34, 	36, 	38, 	40, 	42, 	45, 	47, 	50, 	53, 
         55, 	58, 	61, 	64, 	68, 	71, 	74, 	78, 	81, 	85, 
         89, 	92, 	96, 	100, 	104, 	108, 	112, 	116, 	119, 	123
-        //*/
     };
     static inline bool is_fault = false;                                //регистр-флаг, отвечающий за работу драйвера: пока fault в 1, драйвер прекращает работу
     static inline bool is_reverse = false;                              //регистр-флаг, отвечающий за активный реверс двигателя [дополнить функционал]
-    
+    static inline uint8_t current_frequency;
+    static inline uint8_t current_direction;
     static void timer_initialize();                                     // инициализация таймеров(TIM1 & TIM3)   
     static void ADC_initialize();                                       // инициализация АЦП для оцифровки значений шунтов на фазах
     static void buttons_initialize();                                   // инициализация кнопок
@@ -83,22 +80,21 @@ public:
     static inline void main_initialization()                            // все методы инициализации вызываются здесь
     {
         //ADC_initialize();
+        buttons_initialize();
         timer_initialize();
-        //buttons_initialize();
         LED_I::init();
         buzzer_initialize();
     }
 
-    static inline void buzzer_initialize()
+    static inline void buzzer_initialize()                              // инициализация пина Буззера
     {
-        GPIOB->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);
+        GPIOB->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);                //GeneralPurpose Push-pull c подтяжкой на минус, чтобы не пищал буззер изначально
         GPIOB->CRL |= (0b10 << GPIO_CRL_MODE7_Pos); 
-        /*
-        GPIOB->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);        //Вход PullUp
-        GPIOB->CRL |= (0b01 << GPIO_CRL_MODE7_Pos);              //Вход PullUp
-        //GPIOB->ODR |= (0 << 0);                                 //Подтяжка вверх
-        */
-    //GPIOB->BRR |= (in_segment) ? GPIO_BRR_BR11 : GPIO_BRR_BR10;
+    }
+    static inline void fault_initialize()                               // иницилизация пина Fault(на драйвер)
+    {
+        GPIOB->CRL &= ~(GPIO_CRL_MODE7 | GPIO_CRL_CNF7);                //GeneralPurpose Push-pull c подтяжкой на минус, чтобы не пищал буззер изначально
+        GPIOB->CRL |= (0b10 << GPIO_CRL_MODE7_Pos); 
     }
     constexpr static inline uint32_t get_PSC(const uint8_t &value)      // пересчет PSC для таймера TIM1(для изменения частоты синусоиды. Частота не всегда равна аргументу)
     {
