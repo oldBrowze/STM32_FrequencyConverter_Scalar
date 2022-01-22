@@ -7,7 +7,7 @@ int main()
 {
     RCC_Init();                             //инициализация тактирования
     FreqConverter::main_initialization();   //инициализация частотника
-
+    //FreqConverter::buzzer_toggle(true);
     while(true);
     return 0;
 }

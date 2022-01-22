@@ -4,7 +4,7 @@
 void LED_I::init()
 {
     //тактирование порта B уже включено таймером
-    SysTick_Config(72000000 / 700);
+    SysTick_Config(72000000 / 1200);
     AFIO->MAPR = AFIO_MAPR_SPI1_REMAP | AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
 
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN; // запускаем тактирование SPI, PB
@@ -92,15 +92,25 @@ uint8_t LED_I::get_value(const uint8_t &value, const uint8_t &digit)
                 return  _index_symbol_R;
             return _index_symbol_F;
             
+            //return (value < 1000) ? 0 : value / 1000;
         default: return 0;
     }
 }
 
 extern "C" void SysTick_Handler()
 {
+    if(FreqConverter::key_encoder_is_pressed)
+        FreqConverter::key_encoder_is_pressed = false;
+
+    if(FreqConverter::key_fault_is_pressed)
+        FreqConverter::key_fault_is_pressed = false;
+
+    if(FreqConverter::key_reverse_is_pressed)
+        FreqConverter::key_reverse_is_pressed = false;
+
     static uint8_t current_digit{1};
-    static auto& value = TIM3->CNT;
-    
+    //static auto& value = TIM3->CNT;
+    static auto& value = FreqConverter::_ADC_VALUE;
     LED_I::send_command(current_digit, false); // разряд
     LED_I::send_command(LED_I::numbers_of_digit[LED_I::get_value(value, current_digit)]);
 

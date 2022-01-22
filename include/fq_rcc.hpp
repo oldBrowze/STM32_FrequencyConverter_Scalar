@@ -25,6 +25,6 @@ __attribute__((always_inline)) static inline void RCC_Init() // устанавл
 
     //тактирование нужных шин
     RCC->APB2ENR = RCC_APB2ENR_AFIOEN | RCC_APB2ENR_ADC1EN | RCC_APB2ENR_TIM1EN | \
-                    RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN;
+                    RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_ADC2EN;
     RCC->APB1ENR = RCC_APB1ENR_TIM3EN | RCC_APB1ENR_TIM2EN;
 }

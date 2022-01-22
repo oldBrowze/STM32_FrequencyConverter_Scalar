@@ -17,21 +17,16 @@ void FreqConverter::buttons_initialize()
         Нужно, чтобы было включено тактирование AFIO, GPIOx
     */
     //KEY_BUTTON на энкодере0
-    GPIOA->CRL &= ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3);                    //GeneralPurpose Push-pull c подтяжкой на плюс
-    GPIOA->CRL |= (0x02 << GPIO_CRL_MODE3_Pos);                         
-    GPIOA->BSRR |= GPIO_BSRR_BS3;                                       
-
-
+    GPIOA->CRL |= (0b01 << GPIO_CRL_CNF3_Pos) | (0b00 << GPIO_CRL_MODE3_Pos);
+                                    
     //BUTTON_REVERSE(с подтяжкой на плюс, при включенном реверсе - будет пин в лог. 0)1
-    GPIOA->CRL &= ~(GPIO_CRL_MODE4 | GPIO_CRL_CNF4);                  //GeneralPurpose Push-pull c подтяжкой на плюс
-    GPIOA->CRL |= (0b10 << GPIO_CRL_MODE4_Pos); 
-    GPIOA->BSRR |= GPIO_BSRR_BS4;
+    GPIOA->CRL |= (0b01 << GPIO_CRL_CNF4_Pos) | (0b00 << GPIO_CRL_MODE4_Pos);
+    //GPIOA->BSRR |= GPIO_BSRR_BS4;
 
 
     //КНОПКА ОТКЛЮЧЕНИЯ FAULT/ЗВУКОВОЙ ОШИБКИ(по фронту импульса/с внешним прерыванием по изменении флага)2
-    GPIOA->CRL &= ~(GPIO_CRL_MODE5 | GPIO_CRL_CNF5);                  //GeneralPurpose Push-pull c подтяжкой на плюс
-    GPIOA->CRL |= (0b10 << GPIO_CRL_MODE5_Pos); 
-    GPIOA->BSRR |= GPIO_BSRR_BS5;
+    GPIOA->CRL |= (0b01 << GPIO_CRL_CNF5_Pos) | (0b00 << GPIO_CRL_MODE5_Pos);
+    //GPIOA->BSRR |= GPIO_BSRR_BS5;
 
 
     //Настройка внешних прерываний
@@ -44,7 +39,7 @@ void FreqConverter::buttons_initialize()
     */
 
     //EXTI->RTSR |= EXTI_RTSR_RT5;                      //Прерывание по фронту импульса(при переключении с лог. 0 на лог. 1 на кнопке FAULT)
-    EXTI->FTSR |= EXTI_FTSR_TR3 | EXTI_RTSR_RT4 | EXTI_RTSR_RT5;                       //Прерывание по спаду импульса(при переключении с лог. 1 на лог. 0;)
+    EXTI->FTSR |= EXTI_FTSR_FT3 | EXTI_FTSR_FT4 | EXTI_FTSR_FT5;                       //Прерывание по спаду импульса(при переключении с лог. 1 на лог. 0;)
 
 
 
@@ -67,84 +62,110 @@ void FreqConverter::buttons_initialize()
 //при нажатии на кнопку энкодера происходит установка частоты на 30 Гц
 extern "C" void EXTI3_IRQHandler()
 {
+    if(!FreqConverter::key_encoder_is_pressed)
+    {
+       TIM3->CNT = 30; 
+       FreqConverter::key_encoder_is_pressed = true;
+    }
     EXTI->PR = EXTI_PR_PR3;
-    TIM3->CNT = 30;
 }
 
 extern "C" void EXTI4_IRQHandler()
 {
+    if(!FreqConverter::key_fault_is_pressed)
+    {
+        TIM3->CNT = 30;
+        FreqConverter::key_fault_is_pressed = true;
+        FreqConverter::is_fault = !FreqConverter::is_fault;
+        FreqConverter::buzzer_toggle(FreqConverter::is_fault);    //выключаем буззер
+    }
+
     EXTI->PR = EXTI_PR_PR4;
-    TIM3->CNT = 30;
-    FreqConverter::is_fault = !FreqConverter::is_fault;
-    FreqConverter::buzzer_toggle(FreqConverter::is_fault);    //выключаем буззер
 }
 
 extern "C" void EXTI9_5_IRQHandler()
 {
     //можно без проверки пина прерывания, PA5 подключен один
-    EXTI->PR = EXTI_PR_PR5;
-    //код
-    FreqConverter::is_reverse = !FreqConverter::is_reverse;
-    FreqConverter::buzzer_toggle(FreqConverter::is_reverse);    //выключаем буззер
+    if(!FreqConverter::key_reverse_is_pressed)
+    {
+        FreqConverter::key_reverse_is_pressed = true;
+        FreqConverter::is_reverse = !FreqConverter::is_reverse;
+        FreqConverter::buzzer_toggle(FreqConverter::is_reverse);    //выключаем буззер
+    }
     /*
     if(FreqConverter::is_reverse)
         return;
     */
     //FreqConverter::current_frequency = TIM3->CNT; //либо реализовать через ссылку &
+
+    EXTI->PR = EXTI_PR_PR5;
 }
 
 void FreqConverter::ADC_initialize()
 {
     //порт A затактирован, АЦП затактирован
+    /*
+    Сделать: для 1 фазы ADC1, для второй фазы ADC2(чтобы работали параллельно)
+    Для каждой фазы сделать прерывание и в нем проверку.
 
-    RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;                                  // т.к частота МК 72 МГц, а частота макс. АЦП - 14 МГц, то нужно использовать предделитель
+    */
+    RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;                                      // т.к частота МК 72 МГц, а частота макс. АЦП - 14 МГц, то нужно использовать предделитель
 
-    GPIOA->CRL &= ~(GPIO_CRL_MODE0 | GPIO_CRL_CNF0 | \
-                    GPIO_CRL_MODE1 | GPIO_CRL_CNF1 | \
-                    GPIO_CRL_MODE2 | GPIO_CRL_CNF2);                    // настраиваем порты PA0-PA2 как аналоговые
-
-
-    ADC1->SMPR2 = (0b001 << ADC_SMPR2_SMP0_Pos) | \
-                (0b001 << ADC_SMPR2_SMP1_Pos) | \
-                (0b001 << ADC_SMPR2_SMP2_Pos);                          // 7.5 циклов частота для каждого канала
+    GPIOA->CRL &= ~((GPIO_CRL_MODE0 | GPIO_CRL_CNF0) | \
+                    (GPIO_CRL_MODE1 | GPIO_CRL_CNF1));                      // настраиваем порты PA0-PA1 как аналоговые
 
 
-    ADC1->CR1 = ADC_CR1_EOCIE | ADC_CR1_JEOCIE | \
-                ADC_CR1_JAUTO | ADC_CR1_SCAN;                           // разрешаем прерывание от АЦП
-    ADC1->CR2 = ADC_CR2_CONT;                                           // непрерывная работа 
+    ADC1->SMPR2 |= (0b011 << ADC_SMPR2_SMP0_Pos);                           // количество измерений
+    ADC2->SMPR2 |= (0b011 << ADC_SMPR2_SMP0_Pos);
+
+
+    ADC1->CR1 |= ADC_CR1_EOCIE;                                             // разрешаем прерывание от АЦП
+    ADC1->CR2 |= ADC_CR2_CONT;                                              // непрерывная работа 
+
+    ADC2->CR1 |= ADC_CR1_EOCIE;                                             // разрешаем прерывание от АЦП
+    ADC2->CR2 |= ADC_CR2_CONT;                                              // непрерывная работа 
 
     __NVIC_EnableIRQ(ADC1_2_IRQn);
 
     ADC1->SQR1 = 0;               // 1 пребразование
-    ADC1->SQR2 = 0;
+    //ADC1->SQR2 = 0;
     ADC1->SQR3 = 0;               // канал A0
+
+    ADC2->SQR1 = 0;               // 1 пребразование
+    //ADC1->SQR2 = 0;
+    ADC2->SQR3 = 0x1;               // канал A1
+
     /*
     PA0 - измерение тока фазы 1
     (0b01 << ADC_JSQR_JL_Pos) - всего 2 преобразования(2 канала инжект.)
     (0x1 << ADC_JSQR_JSQ3_Pos) - канал PA1(измеряется первым), читается из JDR3, измерение тока фазы 2
     (0x2 << ADC_JSQR_JSQ4_Pos) - канал PA2(измеряется вторым), читается из JDR4, измерение температуры драйвера
     */
-    ADC1->JSQR = (0b01 << ADC_JSQR_JL_Pos) | \
-                (0x1 << ADC_JSQR_JSQ3_Pos) | \
-                (0x2 << ADC_JSQR_JSQ4_Pos);
+    ADC1->CR2 |= ADC_CR2_EXTSEL | ADC_CR2_EXTTRIG;
+    ADC1->CR2 |= ADC_CR2_ADON;                                          // запускаем АЦП
 
+
+    ADC2->CR2 |= ADC_CR2_EXTSEL | ADC_CR2_EXTTRIG;
+    ADC2->CR2 |= ADC_CR2_ADON;  
+    /*
+    ADC1->CR2 |= ADC_CR2_CAL;
+    while (ADC1->CR2 & ADC_CR2_CAL); // ждем, пока АЦП откалибруется
     //задержка
     asm("NOP");
     asm("NOP");
-    
-    ADC1->CR2 |= ADC_CR2_CAL;
-    while (ADC1->CR2 & ADC_CR2_CAL); // ждем, пока АЦП откалибруется
-    ADC1->CR2 |= ADC_CR2_ADON; // запускаем АЦП
-    ADC1->CR2 |= ADC_CR2_SWSTART | ADC_CR2_JSWSTART; // запускаем АЦП
+    */
+    ADC1->CR2 |= ADC_CR2_SWSTART; // запускаем АЦП
+    ADC2->CR2 |= ADC_CR2_SWSTART; // запускаем АЦП
 }
 
 extern "C" void ADC1_2_IRQHandler()
 {
+    /*
     if(ADC1->SR & ADC_SR_EOC)
     {
-        if(ADC1->DR > _MAX_CURRENT_PHASE)
+        if((((static_cast<float>(ADC1->DR) / _ADC_VOLTAGE_STEP) - _ZERO_LEVEL_VOLATAGE) / _MVOLTS_PER_AMPER) > 0.03)
+            FreqConverter::buzzer_toggle(true);
         //отключить драйвер
-            return;
         ADC1->SR &= ~ADC_SR_EOC;
     }
     if(ADC1->SR & ADC_SR_JEOC)
@@ -158,6 +179,40 @@ extern "C" void ADC1_2_IRQHandler()
             return;
         
         ADC1->SR &= ~ADC_SR_JEOC;
+    }*/
+    if(ADC1->SR & ADC_SR_EOC)
+    {
+        /*
+        static uint8_t count = 1;
+        static uint16_t _buffer = 0;
+        if(++count <= 8)
+        {
+            _buffer += ADC1->DR;
+        }
+        else
+        {
+            FreqConverter::_ADC_VALUE = _buffer / 8;
+            _buffer = 0;
+            count = 0;
+        }*/
+        ADC1->SR &= ~ADC_SR_EOC;
+    }
+
+    if(ADC2->SR & ADC_SR_EOC)
+    {
+        static uint8_t count = 1;
+        static uint16_t _buffer = 0;
+        if(++count <= 8)
+        {
+            _buffer += ADC2->DR;
+        }
+        else
+        {
+            FreqConverter::_ADC_VALUE = _buffer / 8;
+            _buffer = 0;
+            count = 0;
+        }
+        ADC2->SR &= ~ADC_SR_EOC;
     }
 }
 
@@ -330,16 +385,3 @@ extern "C" void TIM2_IRQHandler()
     }*/
     TIM2->SR = 0;
 }
-
-//unused
-/*
-extern "C" void ADC1_2_IRQHandler()
-{
-    if(ADC1->SR & ADC_SR_EOC)
-    {
-        //TIM2->ARR = (_F_CPU / (FreqConverter::get_frequency() * _DISCRETIZE) - 1);
-        //LED_I::value = FreqConverter::get_frequency();
-    }
-    ADC1->SR = 0x0;
-}
-*/

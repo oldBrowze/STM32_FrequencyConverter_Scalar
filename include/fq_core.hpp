@@ -20,12 +20,14 @@ constexpr auto  _START_VALUE_PHASE_V    = _DISCRETIZE / 3;
 constexpr auto  _START_VALUE_PHASE_W    = _START_VALUE_PHASE_V * 2;
 
 //настройки АЦП
-constexpr auto  _VOLTAGE_ON_PORT        = 3.3f;                     // напряжение на порту(напряжение питания)
+constexpr auto  _VOLTAGE_REF            = 3.3f;                     // напряжение на порту(напряжение питания)
 constexpr auto  _AMPLITUDE              = ((1 << 16) - 1) / 2;      // максимальное значение таймера
-constexpr auto  _ADC_MAX_VALUE          = (1 << 12) - 1;            // максимальное значение в АЦП
-constexpr auto  _MAX_CURRENT_PHASE      = 6u;                       // максимальный ток фазы
+constexpr auto  _ADC_MAX_VALUE          = (1 << 12);                // максимальное значение в АЦП
+constexpr auto  _ADC_VOLTAGE_STEP       = _VOLTAGE_REF / _ADC_MAX_VALUE;
+constexpr auto  _MAX_CURRENT_PHASE      = 2u;                       // максимальный ток фазы
 constexpr auto  _MAX_TEMP_DRIVER        = 70u;                      // максимальная температура драйвера
-
+constexpr auto  _ZERO_LEVEL_VOLATAGE    = 2.6f;
+constexpr auto  _MVOLTS_PER_AMPER       = 0.04f;
 //макросы
 constexpr auto  _DIR_LEFT               = 1u;
 constexpr auto  _DIR_RIGHT              = 2u;
@@ -73,6 +75,12 @@ public:
     static inline bool is_reverse = false;                              //регистр-флаг, отвечающий за активный реверс двигателя [дополнить функционал]
     static inline uint8_t current_frequency;
     static inline uint8_t current_direction;
+    static inline bool 
+        key_fault_is_pressed    = false,
+        key_reverse_is_pressed  = false,
+        key_encoder_is_pressed  = false;
+
+    static inline uint16_t _ADC_VALUE = 0;
     static void timer_initialize();                                     // инициализация таймеров(TIM1 & TIM3)   
     static void ADC_initialize();                                       // инициализация АЦП для оцифровки значений шунтов на фазах
     static void buttons_initialize();                                   // инициализация кнопок
@@ -84,6 +92,7 @@ public:
         timer_initialize();
         LED_I::init();
         buzzer_initialize();
+        ADC_initialize();
     }
 
     static inline void buzzer_initialize()                              // инициализация пина Буззера
